@@ -1,0 +1,7 @@
+path: ../data/polypdb_wli
+train: images/train
+val: images/val
+test: images/test
+
+nc: 1
+names: ['polyp']
