@@ -14,7 +14,7 @@ h2{color:#222;border-bottom:1px solid #eee;padding-bottom:4px;margin-top:32px}
 h3{color:#333}
 blockquote{border-left:4px solid #ddd;margin:0;padding:8px 16px;color:#555}
 hr{border:none;border-top:1px solid #eee;margin:24px 0}
-@media print{body{max-width:100%;padding:0 16px}table{font-size:0.75em}}
+@media print{body{max-width:100%;padding:0 16px}table{font-size:0.75em}img{page-break-inside:avoid;page-break-before:auto;page-break-after:auto}pre{page-break-inside:avoid}blockquote{page-break-inside:avoid}}
 """
 
 def generate(src, dest):
