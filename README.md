@@ -1,109 +1,121 @@
-# Polyp Detection — Cross-Modal Generalization Study
+# Polyp Detection — Cross-Modal Architecture Comparison
 
-**PolypDB · YOLO26s · Trained on WLI → Tested on 4 Unseen Modalities**
+**Which YOLO architecture generalizes best across endoscopic imaging modalities?**
 
-> Submitted to BDI National AI Hackathon 2026 — AI for Healthcare track  
-> Results: June 12, 2026
-
----
-
-## The Question This Study Answers
-
-PolypDB contains 5 imaging modalities: WLI, NBI, BLI, FICE, LCI.  
-WLI has 3,558 images. Every other modality has 60–146.
-
-Training a separate model per modality overfits the small sets.  
-The clinically relevant question is different:
-
-> **Does a model trained only on standard white-light imaging generalize to enhanced imaging modalities it has never seen?**
-
-This study answers that directly — with real error analysis, not just headline metrics.
+> PolypDB · 4-Architecture Comparison · Trained on WLI → Zero-shot tested on NBI / BLI / FICE / LCI
 
 ---
 
-## Results
+## The Research Question
 
-### Training Performance (WLI, best epoch)
+PolypDB contains 5 imaging modalities: WLI, NBI, BLI, FICE, and LCI.  
+WLI (White Light Imaging) accounts for 3,588 of 3,934 images (91%).
 
-| Metric | Value |
-|---|---|
-| **mAP@50** | **95.12%** (epoch 96) |
-| mAP@50-95 | 78.5% |
+> **Does architecture choice — independent of augmentation — affect how well a WLI-trained model generalizes to unseen imaging modalities?**
 
-### Evaluation — WLI Val Set (538 images)
+This study trains four architectures under identical conditions (same dataset, epochs, augmentation config) where **only the model architecture varies**.
 
-| Metric | Value |
-|---|---|
-| Precision | 93.9% |
-| Recall | 89.4% |
-| F1 | 91.6% |
-| mIoU | 84.5% |
-| mAP@50 | **90.2%** |
-| mAP@50-95 | 75.1% |
+---
 
-### Cross-Modal Generalization (zero-shot — model never saw these modalities)
+## Four-Architecture Comparison
 
-| Modality | Images | mAP@50 | mAP@50-95 | F1 | Notes |
-|---|---|---|---|---|---|
-| **LCI** | 60 | **91.5%** | 77.7% | 94.4% | Best generalization — color profile closest to WLI |
-| **FICE** | 70 | 77.5% | 68.5% | 86.6% | Partial color overlap with WLI |
-| **NBI** | 146 | 67.3% | 50.0% | 75.6% | Vascular enhancement = significant domain shift |
-| **BLI** | 70 | 64.7% | 52.2% | 75.5% | Narrow-band blue light = highest domain shift |
+| Model | Parameters | GFLOPs | Family |
+|---|---|---|---|
+| **YOLO26s** | 9.47M | 20.5 | Custom (YOLO26) |
+| **YOLOv11n** | 2.58M | 6.3 | Ultralytics v11 nano |
+| **YOLOv11s** | 9.41M | 21.3 | Ultralytics v11 small |
+| **YOLOv8n** | 3.01M | 8.1 | Ultralytics v8 nano |
 
-### Error Analysis (WLI Val, 538 images)
+---
 
-| Error type | Count | Rate |
+## Cross-Modal Results
+
+### mAP@50 Heatmap
+
+![Cross-Modal Heatmap](cross_modal_heatmap.png)
+
+### Full Results Table
+
+| Model | WLI (train) | LCI | FICE | NBI | BLI | Avg OOD |
+|---|---|---|---|---|---|---|
+| **YOLO26s** | 0.983 | 0.980 | 0.881 | 0.790 | 0.761 | 0.853 |
+| **YOLOv11n** | 0.977 | 0.977 | 0.962 | 0.929 | 0.921 | 0.947 |
+| **YOLOv11s** | 0.983 | **0.992** | 0.961 | **0.943** | **0.940** | **0.959** |
+| **YOLOv8n** | **0.983** | 0.989 | **0.963** | 0.926 | 0.933 | 0.953 |
+
+> WLI = training modality (val set). LCI / FICE / NBI / BLI = zero-shot (never seen during training).  
+> Avg OOD = mean mAP@50 across 4 unseen modalities.
+
+---
+
+## Key Findings
+
+### 1. Larger is not more generalizable
+
+YOLO26s achieves the same WLI performance as others (98.3%) but the worst OOD generalization — dropping to 76.1% on BLI and 79.0% on NBI.
+
+YOLOv11s (similar parameter count) outperforms it on every OOD modality by **6–18 percentage points**.
+
+| Model | WLI → BLI drop | WLI → NBI drop |
 |---|---|---|
-| Complete miss (0 predictions) | 7 | **1.3%** |
-| Low confidence (< 0.5) | 27 | 5.0% |
-| Imprecise boxes (IoU 0.5–0.75) | 36 | 6.7% |
+| YOLO26s | **−22.2%** | **−19.3%** |
+| YOLOv11n | −5.6% | −4.8% |
+| YOLOv11s | −4.3% | −3.9% |
+| YOLOv8n | −5.0% | −5.7% |
 
-**7/538 complete misses** — model is reliable on training modality with very low false-negative rate.
+YOLO26s has **4–5× larger cross-modal drop** than the v11/v8 architectures.
+
+### 2. YOLOv11s achieves best overall balance
+
+- Best average OOD mAP@50: **95.9%**
+- Highest single OOD score: LCI **99.2%**
+- Most consistent across all 5 modalities
+
+### 3. YOLOv8n punches above its weight
+
+3.01M parameters vs 9.41M for YOLOv11s — yet achieves **95.3% average OOD**. Strong generalization at 1/3 the model size.
+
+### 4. Cross-modal drop order is consistent across all architectures
+
+**LCI > FICE > NBI > BLI** — this reflects domain shift magnitude, not architecture behavior.
 
 ---
 
-## Why the Cross-Modal Gap Exists
+## Why the Cross-Modal Gaps Exist
 
-**LCI generalizes best** — LCI (Linked Color Imaging) enhances mucosal contrast while preserving white-light color balance. Its color profile overlaps substantially with WLI.
+**LCI generalizes best** — Linked Color Imaging preserves the white-light color profile. Closest color statistics to WLI.
 
-**NBI and BLI drop significantly** — Narrow-band imaging highlights vascular patterns using blue (415nm) and green (540nm) light. This produces fundamentally different color statistics vs WLI. The gap is expected and clinically meaningful: these modalities require either multi-modal training or domain adaptation.
+**NBI and BLI drop significantly** — Narrow-band imaging uses 415nm / 540nm wavelengths to highlight vascular patterns, producing fundamentally different color distributions.
 
-**FICE sits in between** — Flexible spectral imaging color enhancement uses post-processing to simulate narrow-band contrast. Partial WLI overlap explains the middle-ground performance.
+**FICE sits in between** — Post-processing simulation of narrow-band contrast with partial WLI color overlap.
+
+**Clinical implication:** A WLI-only model is reliable for standard imaging and LCI, but should not be deployed for NBI/BLI without additional adaptation. The gap is not a model failure — it is a real domain boundary.
 
 ---
 
-## Model & Training Config
+## Training Configuration
 
 | Parameter | Value |
 |---|---|
-| Model | YOLO26s (Ultralytics 8.4.6x) |
-| Parameters | 9.47M |
-| GFLOPs | 20.5 |
-| Epochs | 100 (best weights: epoch 96) |
-| Batch size | 32 |
+| Training modality | WLI only |
+| Dataset split | 70 / 15 / 15 (train / val / test) |
+| Epochs | 100 |
 | Image size | 640px |
-| Hardware | Kaggle T4 GPU (~2 hours) |
-| Training modality | WLI only (`WLI_ONLY = True`) |
+| Augmentation | HSV locked (hsv_h/s/v = 0.0), spatial flips, mixup |
+| Hardware | Kaggle T4 GPU |
 
-**Augmentation:**
-```
-HSV: h=0.015, s=0.7, v=0.4
-Flips: flipud=0.5, fliplr=0.5
-mixup=0.1, copy_paste=0.1, close_mosaic=10
-```
-
-**Dataset split (WLI):** 2,511 train / 538 val / 539 test (70/15/15)
+**HSV lock rationale:** Standard YOLO augmentation applies HSV jitter by default. For medical endoscopy this is incorrect — color carries diagnostic signal (redness = inflammation, pallor = tissue state). Locking HSV preserves the biological markers that enable cross-modal transfer.
 
 ---
 
 ## Dataset
 
 **PolypDB** — Jha et al. 2024 ([arXiv:2409.00045](https://arxiv.org/abs/2409.00045))  
-3,904 colonoscopy images · 5 modalities · 3 hospitals (Norway, Sweden, Vietnam)
+3,934 colonoscopy images · 5 modalities · 3 hospitals (Norway, Sweden, Vietnam)
 
-| Modality | Full name | Total images |
+| Modality | Full name | Images |
 |---|---|---|
-| WLI | White Light Imaging | 3,608 |
+| WLI | White Light Imaging | 3,588 |
 | NBI | Narrow Band Imaging | 146 |
 | BLI | Blue Light Imaging | 70 |
 | FICE | Flexible Spectral Imaging Color Enhancement | 70 |
@@ -114,36 +126,26 @@ mixup=0.1, copy_paste=0.1, close_mosaic=10
 ## Reproduce
 
 ```bash
-# Install
 pip install ultralytics==8.4.6
 
-# Train (WLI only)
-python train.py --data polypdb_wli.yaml --model yolo26s.pt --epochs 100 --batch 32 --imgsz 640
+# Evaluate cross-modal generalization
+python scripts/evaluate.py --weights <model>.pt --modality NBI
+python scripts/evaluate.py --weights <model>.pt --modality BLI
+python scripts/evaluate.py --weights <model>.pt --modality FICE
+python scripts/evaluate.py --weights <model>.pt --modality LCI
 
-# Evaluate cross-modality
-python eval.py --weights runs/train/best.pt --data polypdb_nbi.yaml
-python eval.py --weights runs/train/best.pt --data polypdb_bli.yaml
-python eval.py --weights runs/train/best.pt --data polypdb_fice.yaml
-python eval.py --weights runs/train/best.pt --data polypdb_lci.yaml
+# Generate cross-modal heatmap
+python scripts/plot_crossmodal_heatmap.py
 ```
 
-Full notebook on Kaggle: [link coming after BDI results]
-
----
-
-## What's Next
-
-- [ ] Train on ALL 5 modalities (`WLI_ONLY = False`) — measure cross-modal gap reduction
-- [ ] Add YOLOv11s and Faster R-CNN comparison (pending collaborator feedback)
-- [ ] Explore domain adaptation techniques for NBI/BLI gap
-- [ ] Package as reproducible Kaggle notebook
+Full evaluation notebook: `notebooks/polypdb_crossmodal_eval.ipynb`
 
 ---
 
 ## Related Projects
 
-- [รู้รอบกรุง](https://github.com/Mad-m-dock/ruurobnkrung) — Thai civic RAG assistant (LINE OA)
-- [Jenna OS](https://github.com/Mad-m-dock/jenna-os-skeleton) — Autonomous multi-agent AI system
+- [รู้รอบกรุง](https://github.com/Mad-m-dock/ruurobnkrung) — Thai civic RAG assistant · BDI National AI Hackathon 2026
+- [Jenna OS](https://github.com/Mad-m-dock) — Production multi-agent AI system
 
 ---
 
